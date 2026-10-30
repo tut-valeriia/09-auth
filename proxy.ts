@@ -32,26 +32,32 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  const applySetCookies = (response: NextResponse) => {
+    if (sessionResponse?.headers?.["set-cookie"]) {
+      const setCookies = sessionResponse.headers["set-cookie"];
+      const cookieArray = Array.isArray(setCookies) ? setCookies : [setCookies];
+
+      cookieArray.forEach((cookieStr: string) => {
+        response.headers.append("set-cookie", cookieStr);
+      });
+    }
+    return response;
+  };
+
   if (isPrivateRoute && !isAuthenticated) {
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+    const redirectResponse = NextResponse.redirect(
+      new URL("/sign-in", request.url),
+    );
+    return applySetCookies(redirectResponse);
   }
 
   if (isAuthRoute && isAuthenticated) {
-    return NextResponse.redirect(new URL("/profile", request.url));
+    const redirectResponse = NextResponse.redirect(new URL("/", request.url));
+    return applySetCookies(redirectResponse);
   }
 
   const response = NextResponse.next();
-
-  if (sessionResponse?.headers?.["set-cookie"]) {
-    const setCookies = sessionResponse.headers["set-cookie"];
-    const cookieArray = Array.isArray(setCookies) ? setCookies : [setCookies];
-
-    cookieArray.forEach((cookieStr: string) => {
-      response.headers.append("set-cookie", cookieStr);
-    });
-  }
-
-  return response;
+  return applySetCookies(response);
 }
 
 export const config = {
