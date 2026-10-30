@@ -6,6 +6,12 @@ import { checkSession } from "./lib/api/serverApi";
 const privateRoutes = ["/profile", "/notes"];
 const authRoutes = ["/sign-in", "/sign-up"];
 
+const isMatchRoute = (pathname: string, routes: string[]) => {
+  return routes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
+};
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const cookieStore = await cookies();
@@ -13,10 +19,8 @@ export async function proxy(request: NextRequest) {
   const accessToken = cookieStore.get("accessToken")?.value;
   const refreshToken = cookieStore.get("refreshToken")?.value;
 
-  const isPrivateRoute = privateRoutes.some((route) =>
-    pathname.startsWith(route),
-  );
-  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
+  const isPrivateRoute = isMatchRoute(pathname, privateRoutes);
+  const isAuthRoute = isMatchRoute(pathname, authRoutes);
 
   let isAuthenticated = Boolean(accessToken);
   let sessionResponse: any = null;
