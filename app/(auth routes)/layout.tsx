@@ -1,17 +1,18 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+"use client";
 
-export default async function AuthLayout({
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("accessToken")?.value;
+  const router = useRouter();
 
-  if (token) {
-    redirect("/profile");
-  }
+  useEffect(() => {
+    router.refresh();
+  }, [router]);
 
   return <>{children}</>;
 }

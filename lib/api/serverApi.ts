@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import type { AxiosResponse } from "axios";
 import { api } from "./api";
 import type { Note } from "@/types/note";
 import type { User } from "@/types/user";
@@ -15,14 +16,14 @@ export interface FetchNotesResponse {
   totalPages: number;
 }
 
-export async function checkSession(): Promise<User | null> {
+export async function checkSession(): Promise<AxiosResponse<User>> {
   const cookieStore = await cookies();
-  const response = await api.get<User | null>("/auth/session", {
+  const response = await api.get<User>("/auth/session", {
     headers: {
       Cookie: cookieStore.toString(),
     },
   });
-  return response.data;
+  return response;
 }
 
 export async function getMe(): Promise<User> {

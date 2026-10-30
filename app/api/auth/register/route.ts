@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { api } from "../../api";
+import { cookies } from "next/headers";
 import { parseSetCookie } from "cookie";
 import { isAxiosError } from "axios";
 import { logErrorResponse } from "../../_utils/utils";
@@ -7,30 +8,22 @@ import { logErrorResponse } from "../../_utils/utils";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+
     const apiRes = await api.post("auth/register", body);
 
-    const res = NextResponse.json(apiRes.data, { status: apiRes.status });
+    const cookieStore = await cookies();
     const setCookie = apiRes.headers["set-cookie"];
 
     if (setCookie) {
       const cookieArray = Array.isArray(setCookie) ? setCookie : [setCookie];
-
       for (const cookieStr of cookieArray) {
         const parsed = parseSetCookie(cookieStr);
 
-        if (parsed.name && parsed.value) {
-          res.cookies.set(parsed.name, parsed.value, {
-            httpOnly: parsed.httpOnly,
-            secure: process.env.NODE_ENV === "production",
-            maxAge: parsed.maxAge,
-            expires: parsed.expires,
-            sameSite: "lax",
-            path: parsed.path || "/",
-          });
+        if (parsed.value) {
+          cookieStore.set(parsed.name, parsed.value, parsed);
         }
       }
-
-      return res;
+      return NextResponse.json(apiRes.data, { status: apiRes.status });
     }
 
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -39,7 +32,7 @@ export async function POST(req: NextRequest) {
       logErrorResponse(error.response?.data);
       return NextResponse.json(
         { error: error.message, response: error.response?.data },
-        { status: error.status || 500 },
+        { status: error.status },
       );
     }
     logErrorResponse({ message: (error as Error).message });

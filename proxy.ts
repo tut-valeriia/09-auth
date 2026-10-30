@@ -1,33 +1,57 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { cookies } from "next/headers";
+import { checkSession } from "./lib/api/serverApi";
 
 const privateRoutes = ["/profile", "/notes"];
-const publicRoutes = ["/sign-in", "/sign-up"];
+const authRoutes = ["/sign-in", "/sign-up"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const cookieStore = await cookies();
 
-  // Отримуємо актуальний токен сесії
-  const token = request.cookies.get("accessToken")?.value;
+  const accessToken = cookieStore.get("accessToken")?.value;
+  const refreshToken = cookieStore.get("refreshToken")?.value;
 
   const isPrivateRoute = privateRoutes.some((route) =>
     pathname.startsWith(route),
   );
-  const isPublicRoute = publicRoutes.some((route) =>
-    pathname.startsWith(route),
-  );
+  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
 
-  // Неавторизований намагається зайти на приватні сторінки
-  if (isPrivateRoute && !token) {
+  let isAuthenticated = Boolean(accessToken);
+  let sessionResponse: any = null;
+
+  if (!accessToken && refreshToken) {
+    try {
+      sessionResponse = await checkSession();
+      if (sessionResponse?.data) {
+        isAuthenticated = true;
+      }
+    } catch {
+      isAuthenticated = false;
+    }
+  }
+
+  if (isPrivateRoute && !isAuthenticated) {
     return NextResponse.redirect(new URL("/sign-in", request.url));
   }
 
-  // Вже авторизований намагається зайти на сторінки логіну чи реєстрації
-  if (isPublicRoute && token) {
+  if (isAuthRoute && isAuthenticated) {
     return NextResponse.redirect(new URL("/profile", request.url));
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+
+  if (sessionResponse?.headers?.["set-cookie"]) {
+    const setCookies = sessionResponse.headers["set-cookie"];
+    const cookieArray = Array.isArray(setCookies) ? setCookies : [setCookies];
+
+    cookieArray.forEach((cookieStr: string) => {
+      response.headers.append("set-cookie", cookieStr);
+    });
+  }
+
+  return response;
 }
 
 export const config = {
